@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>U.S. National Debt Tracker</title>
+<style>
+    body {
+        font-family: 'Helvetica', sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        background-color: #f0f0f0;
+    }
+    #debtDisplay {
+        color: red;
+        font-size: 30px;
+        font-weight: bold;
+        margin: 20px 0;
+    }
+    #calendar {
+        margin: 20px 0 10px;
+    }
+    #xHandle {
+        font-size: 16px;
+        margin-top: 20px;
+        cursor: pointer;
+    }
+    .logo {
+        width: 20px;
+        height: 20px;
+        vertical-align: middle;
+    }
+</style>
+</head>
+<body>
+
+<h1>U.S. National Debt</h1>
+
+<div id="debtDisplay">Loading most recent data...</div>
+
+<input type="date" id="calendar" onchange="fetchDebt()">
+
+<div>
+    <img src="x_logo.png" alt="X Logo" class="logo">
+    <span id="xHandle" onclick="openXProfile()">@IThePerson_</span>
+</div>
+
+<script>
+    const debtDisplay = document.getElementById('debtDisplay');
+    const calendar = document.getElementById('calendar');
+    const xHandle = document.getElementById('xHandle');
+    
+    // Function to find the most recent date with available data
+    async function findLatestDate() {
+        let date = new Date();
+        while (true) {
+            let formattedDate = date.toISOString().split('T')[0];
+            const response = await fetch(`https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?filter=record_date:eq:${formattedDate}`);
+            if (response.ok) {
+                const data = await response.json();
+                if (data.data.length > 0) {
+                    return formattedDate;
+                }
+            }
+            date.setDate(date.getDate() - 1);
+        }
+    }
+
+    function fetchDebt(date = null) {
+        if (!date) {
+            date = calendar.value;
+        }
+        const url = `https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_penny?filter=record_date:eq:${date}`;
+        
+        fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            const entry = data.data.find(e => e.record_date === date);
+            if (entry) {
+                debtDisplay.textContent = `$${parseFloat(entry.tot_pub_debt_out_amt).toLocaleString()}`;
+            } else {
+                debtDisplay.textContent = "No data for this date";
+            }
+        })
+        .catch(error => {
+            debtDisplay.textContent = `Error: ${error.message}`;
+        });
+    }
+
+    function openXProfile() {
+        window.open('https://x.com/IThePerson_', '_blank');
+    }
+
+    // Initial fetch for most recent data
+    async function init() {
+        const mostRecentDate = await findLatestDate();
+        calendar.value = mostRecentDate;
+        fetchDebt(mostRecentDate);
+    }
+
+    init();
+
+    // Refresh data every hour
+    function refreshData() {
+        fetchDebt(calendar.value);
+        setTimeout(refreshData, 3600000);
+    }
+    refreshData();
+
+    // Ensure data refreshes when calendar changes
+    calendar.addEventListener('change', () => {
+        fetchDebt(calendar.value);
+    });
+</script>
+
+</body>
+</html>
